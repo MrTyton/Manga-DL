@@ -53,8 +53,8 @@ def ensure_dir(f):
         os.makedirs(f)
 
 def main():
-    urls = ["http://bato.to/read/_/297036/rising-x-rydeen_ch27_by_village-idiot/2", "http://bato.to/read/_/187537/dr-duo_v1_ch1_by_fried-squid-scans", "http://bato.to/read/_/269565/karakai-jouzu-no-takagi-san_v1_ch1_by_ciel-scans", "http://bato.to/read/_/168435/kyou-no-yuiko-san_v1_ch1_by_mal-scanlations", "http://bato.to/read/_/196619/dousei-recipe_v1_ch0.1_by_scx-scans"]
-    dirs = ["Rising x Rydeen", "Dr. Duo", "Teasing Master Takagi-san", "Today's Yuiko-San", "Dousei Recipe"]
+    urls = ["http://bato.to/read/_/187537/dr-duo_v1_ch1_by_fried-squid-scans/2", "http://bato.to/read/_/269565/karakai-jouzu-no-takagi-san_v1_ch1_by_ciel-scans", "http://bato.to/read/_/168435/kyou-no-yuiko-san_v1_ch1_by_mal-scanlations", "http://bato.to/read/_/196619/dousei-recipe_v1_ch0.1_by_scx-scans"]
+    dirs = ["Dr. Duo", "Teasing Master Takagi-san", "Today's Yuiko-San", "Dousei Recipe"]
     #URL = raw_input("Start URL: ")
     #DIR = raw_input("Directory: ")
     baddies = open("bad.txt", "w")
@@ -71,7 +71,7 @@ def main():
                 break
             elif URL != old:
                 count = 0
-            sleep(random.random() * 10)
+            sleep(random.random() * 10 % 7 + 5)
     baddies.close()
 main()
 #("http://bato.to/read/_/123901/nijiiro-days_v1_ch1_by_chibi-manga", "Nijiiro Days")
