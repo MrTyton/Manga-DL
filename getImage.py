@@ -7,6 +7,9 @@ import os
 import shutil
 from os import listdir
 from os.path import isfile, join
+from optparse import OptionParser
+import rearchive
+import repackage
 
 dumb = False
 checkdir = ""
@@ -132,7 +135,7 @@ def main(urls, dirs):
     global dumb
     global checkdir
     smart = True
-    baddies = open("bad.txt", "w")
+    baddies = open("bad.txt", "a")
     ans = []
     for first_url, DIR in zip(urls, dirs):
         URL = first_url
@@ -146,14 +149,23 @@ def main(urls, dirs):
             count += 1
             if dumb and count == 3:
                 smart = False
+                if URL[-2] == "/2" or URL[-2] == "/3": URL = URL[:-2]
             if count == 5 and URL == old:
+                if not smart:
+                    baddies = open("bad.txt", "a")
+                    baddies.write("%s\n" % URL)
+                    baddies.close()
+                    ans.append((URL, DIR))
+                    break
                 try:
                     temp = int(URL[-1])
                     if temp == 2:
                         URL = URL[:-1] + "3"
                         count = 0
                     else:
+                        baddies = open("bad.txt", "a")
                         baddies.write("%s\n" % URL)
+                        baddies.close()
                         ans.append((URL[:-2], DIR)) if URL[:-2] == "/3" else ans.append((URL, DIR))
                         break
                 except:
@@ -170,30 +182,33 @@ def main(urls, dirs):
                     oldir = checkdir
                     smart = True
                     dumb = False
-            sleeptime = random.random() * 10 % 7 + 5
+            sleeptime = random.random() * 10 % 3 + 1
             print "Waiting for %f seconds..." % sleeptime
             sleep(sleeptime)
             print "----------\n"
         smart = True
         dumb = False
-    baddies.close()
     return ans
     
 
-things = [("http://bato.to/read/_/265265/assassination-classroom_ch97_by_utopia/", "Assassination Classroom"),
-          ("http://bato.to/read/_/287191/one-piece-digital-colored-comics_v13_ch114_by_no-group/", "One Piece Colored"),
-          ("http://bato.to/read/_/293222/jitsu-wa-watashi-wa_ch56_by_underdog-scans", "Jitsu wa Watashi Wa"),
-          ("http://bato.to/read/_/208022/shishunki-no-iron-maiden_ch21_by_casanova/", "Shishunki no Iron Maiden"),
-          ("http://bato.to/read/_/118826/jigoro_ch1_by_tama-chan-scans", "Jigoro!"),
-          ("http://bato.to/read/_/8808/welcome-to-the-el-palacio_v1_ch3_by_imangascans/25", "Welcome to the El Palacio"),
-          ("http://bato.to/read/_/3655/trinity-seven_v1_ch2_by_village-idiot/7", "Trinity Seven"),
-          ("http://bato.to/read/_/292819/shokugeki-no-soma_ch98--full-color-_by_casanova/", "Shokugeki no Soma"),
-          ("http://bato.to/read/_/7763/silver-spoon_ch7_by_red-hawk-scans/", "Silver Spoon"),
-          ("http://bato.to/read/_/59999/tegami-bachi_v1_ch1_by_jac-group", "Tegami Bachi"),
-          ("http://bato.to/read/_/47852/spotted-flower_by_hobo-1", "Spotted Flower"),
-          ("http://bato.to/read/_/241565/second-brain_ch1_by_substitute-scans", "Second Brain"),
-          ("http://bato.to/read/_/13983/ren%e2%80%99ai-kyoushuujo_v1_ch1_by_intercross", "Love Training Institute")]    
-while things != []:
-    things = main([x[0] for x in things], [x[1] for x in things])
-    print "Sleeping for 300 seconds"
-    sleep(300)
+def runner(urls, locations):
+    things = [(x, y) for x, y in zip(urls, locations)]
+
+    while things != []:
+        things = main([x[0] for x in things], [x[1] for x in things])
+        
+        baddies = open("bad.txt", "a")
+        baddies.write("\n--------------\n\n")
+        baddies.close()
+        if things != []:
+             print "Sleeping for 300 seconds"
+             sleep(300)
+    [rearchive.rearchive(loc) for loc in locations]
+    [repackage.repackage(loc) for loc in locations]
+         
+if __name__ == "__main__":
+    parser = OptionParser()
+    parser.add_option("-u", "--url", dest="urls", action="append", default=[])
+    parser.add_option("-l", "--location", dest="locations", action="append", default=[])
+    options, args = parser.parse_args()
+    runner(options.urls, options.locations)
