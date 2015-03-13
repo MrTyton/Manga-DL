@@ -27,7 +27,7 @@ def main(folder = ""):
             if ".zip" not in filename: continue
             print "Working on %s" % (filename)
             filename = "./" + folder + "/" + filename
-            fixBadZipfile(filename)
+            #fixBadZipfile(filename)
             try:
                 file = zipfile.ZipFile(filename, "r")
             except:

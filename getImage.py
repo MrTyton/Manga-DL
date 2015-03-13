@@ -182,7 +182,7 @@ def main(urls, dirs):
                     oldir = checkdir
                     smart = True
                     dumb = False
-            sleeptime = random.random() * 10 % 3 + 1
+            sleeptime = random.random() * 10 % 7 + 5
             print "Waiting for %f seconds..." % sleeptime
             sleep(sleeptime)
             print "----------\n"
