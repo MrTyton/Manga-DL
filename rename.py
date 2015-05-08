@@ -3,6 +3,7 @@ import os
 import shutil
 from os import listdir
 from os.path import isfile, join
+import natsort
 
 def fixBadZipfile(zipFile):  
  f = open(zipFile, 'r+b')  
@@ -48,10 +49,9 @@ def main(folder = ""):
                 shutil.rmtree("./renaming")
                 os.makedirs("./renaming")
                 
-            
-            for i,(info, name) in enumerate(zip(file.infolist(), names)):
+            toiterate = natsort.natsorted([(x, y) for x, y in zip(file.infolist(), names)], key = lambda x: x[1].replace("Vol.", "Vol ").replace("Ch.", "Ch ").replace(".zip", " .zip"))
+            for i,(info, name) in enumerate(toiterate):
                 if (".jpg" in name or ".gif" in name or ".png" in name) and (".txt" not in name and "recruit" not in name and "credit" not in name):
-                    #print i, name
                     file.extract(info, "./extraction/")
                     os.rename("./extraction/%s" % (name), "./renaming/%04d.png" % (total))
                     total += 1

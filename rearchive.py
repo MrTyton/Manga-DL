@@ -7,7 +7,7 @@ import shutil
 def rearchive(worker):
     worker = "./%s" % worker
     dirs = [x[0] for x in os.walk(worker) if x[0] != "." and x[0] != worker]
-    #print dirs
+    print dirs
     print "Starting\n"
     for i,directory in enumerate(dirs):
         print "\rWorking on %d out of %d..." % (i+1, len(dirs))

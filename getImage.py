@@ -1,4 +1,4 @@
-import urllib2
+import urllib2, urllib
 import os
 from time import sleep, time
 import random
@@ -10,6 +10,10 @@ from os.path import isfile, join
 from optparse import OptionParser
 import rearchive
 import repackage
+from StringIO import StringIO
+import gzip
+import socket
+
 
 dumb = False
 checkdir = ""
@@ -18,23 +22,32 @@ def download(url, dir, mode):
     global dumb
     global checkdir
     print "Crawling through %s" % url
-    req = urllib2.Request(url, headers={"Accept-Encoding": "utf-8", "Accept-Charset": "utf-8", "User-Agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"})
+    req = urllib2.Request(url, headers={"Accept-Encoding": "utf-8, gzip", "Accept-Charset": "utf-8", "User-Agent": "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"})
     try:
         response = urllib2.urlopen(req)
     except:
         return url
     if response.getcode() == 200:
-        page = response.read()
+        try:
+            page = response.read()
+        except:
+            return url
     else:
         response.close()        
         return main(url)
     if "comic_page" not in page:
-        encoding = response.headers['content-type'].split('charset=')[-1]
-        page = unicode(page, encoding, "ignore")
-        if "comic_page" not in page:
-            print "Retrying"
-            response.close()
-            return url
+        if response.info().get('Content-Encoding') == 'gzip':
+            buf = StringIO( page )
+            f = gzip.GzipFile(fileobj=buf)
+            page = f.read()
+            if "comic_page" not in page:
+                print "Retrying"
+                response.close()
+                return url
+            
+        #encoding = response.headers['content-type'].split('charset=')[-1]
+        #print response.headers
+        #page = unicode(page, encoding, "ignore")
     response.close()
     startparse = page[page.index("comic_page"):]
     startparse = startparse[startparse.index('src="')+5:]
@@ -61,47 +74,90 @@ def download(url, dir, mode):
         starttime = time()
         for i in range(1, numpages+1):
             
-            image_number = "%06d" % i
+            image_number = "%06d" % i #can rewrite this as a generator function
+                        
             image = "%s%s.png" % (image_base_url, image_number)
+            if os.path.isfile("%s/img%s.png" % (directory, image_number)):
+                filenames.append("%s/img%s.png" % (directory, image_number))
+                print "Skipping img%s.png because we've already downloaded it" % image_number
+                continue
+            if os.path.isfile("%s/img%s.jpg" % (directory, image_number)):
+                filenames.append("%s/img%s.jpg" % (directory, image_number))
+                print "Skipping img%s.jpg because we've already downloaded it" % image_number
+                continue
+            print "\rDownloading: %s" % image.split("/")[-1],
             try:
                 u = urllib2.urlopen(image)
-                file_name = "%s.png" % (image_number)
+                #print u.info()
+                file_name = "img%s.png" % (image_number)
             except:
                 try:
                     image = "%s%s.jpg" % (image_base_url, image_number)
                     u = urllib2.urlopen(image)
-                    file_name = "%s.jpg" % (image_number)
+                   # print u.info()
+                    file_name = "img%s.jpg" % (image_number)
                 except:
-                    print "Retrying due to 404"
-                    dumb = True
-                    return url
-            print "\rDownloading: %s" % file_name,
-            f = open("%s/%s" % (directory, file_name), 'wb')
-            filenames.append("%s/%s" % (directory, file_name))
-            meta = u.info()
-            file_size = int(meta.getheaders("Content-Length")[0]) / 1024
+                    try:
+                        image = "%s%s.jpeg" % (image_base_url, image_number)
+                        u = urllib2.urlopen(image)
+                       # print u.info()
+                        file_name = "img%s.jpg" % (image_number)
+                    except urllib2.HTTPError as e:
+                        print "\nRetrying due to: ", e
+                        dumb = True
+                        return url
+                    except Exception as e:
+                        print "\nRetrying due to: ", e
+                        if i > 4: dumb = False
+                        else: dumb = True
+                        #dumb = True
+                        return url#[:url.rfind("/")] + "/%d" % i
+            with open("%s/%s" % (directory, file_name), 'wb') as f:
+                
+            #meta = u.info()
+            #file_size = int(meta.getheaders("Content-Length")[0]) / 1024
             #print "Downloading: %s at %s KiloBytes" % (file_name, file_size)
-            f.write(u.read())
-            u.close()   
-            f.close()
+                try:
+                    f.write(u.read())
+                except:
+                    u.close()
+                    f.close()
+                    os.remove("%s/%s" % (directory, file_name))
+                    return url
+                filenames.append("%s/%s" % (directory, file_name))
+                u.close()
         print "\rCompleted Downloading after %02f seconds, now Archiving" % (time() - starttime)
     else:
         startparse = page[page.index("comic_page"):]
         startparse = startparse[startparse.index('src="')+5:]
         image = startparse[:startparse.index('"')]
-        file_name = image.split('/')[-1]
+        number = url.split("/")[-1]
+        if not number.isdigit(): number = "1"
+        number = "img%06d" % int(number)
+        file_name = "%s.%s" % (number, image.split('.')[-1])
+        if os.path.isfile("%s/%s" % (directory, file_name)):
+            print "Skipping %s because we've already downloaded it" % file_name
+            if page.count('<a href="http://bato.to/comic') == 5:
+                return None
+            startparse = page[page[:page.index("comic_page")].rfind('<a href="http://bato.to/read')+9:]
+            nextpage = startparse[:startparse.index('"')]
+            return nextpage
         try:
             u = urllib2.urlopen(image)
         except:
+            print "SOMETHING BROKE"
             return url
-        f = open("%s/%s" % (directory, file_name), 'wb')
-        filenames.append("%s/%s" % (directory, file_name))
-        meta = u.info()
-        file_size = int(meta.getheaders("Content-Length")[0]) / 1024
-        print "Downloading: %s at %s KiloBytes" % (file_name, file_size)
-        f.write(u.read())
-        u.close()   
-        f.close()
+        with open("%s/%s" % (directory, file_name), 'wb') as f:
+            filenames.append("%s/%s" % (directory, file_name))
+            meta = u.info()
+            file_size = int(meta.getheaders("Content-Length")[0]) / 1024
+            print "Downloading: %s at %s KiloBytes" % (file_name, file_size)
+            try:
+                f.write(u.read())
+            except:
+                u.close()
+                return url
+            u.close()   
         if page.count('<a href="http://bato.to/comic') == 5:
             return None
         startparse = page[page[:page.index("comic_page")].rfind('<a href="http://bato.to/read')+9:]
@@ -135,7 +191,7 @@ def main(urls, dirs):
     global dumb
     global checkdir
     smart = True
-    baddies = open("bad.txt", "a")
+    #baddies = open("bad.txt", "a")
     ans = []
     for first_url, DIR in zip(urls, dirs):
         URL = first_url
@@ -182,9 +238,9 @@ def main(urls, dirs):
                     oldir = checkdir
                     smart = True
                     dumb = False
-            sleeptime = random.random() * 10 % 7 + 5
-            print "Waiting for %f seconds..." % sleeptime
-            sleep(sleeptime)
+            #sleeptime = random.random() * 10 % 1# + 5
+            #print "Waiting for %f seconds..." % sleeptime
+            #sleep(sleeptime)
             print "----------\n"
         smart = True
         dumb = False
@@ -192,11 +248,13 @@ def main(urls, dirs):
     
 
 def runner(urls, locations):
+    starttime = time()
+    socket.setdefaulttimeout(15)
     things = [(x, y) for x, y in zip(urls, locations)]
-
+    for url, loc in things:
+        print "Adding %s to the queue, to be saved in %s" % (url, loc)
     while things != []:
         things = main([x[0] for x in things], [x[1] for x in things])
-        
         baddies = open("bad.txt", "a")
         baddies.write("\n--------------\n\n")
         baddies.close()
@@ -205,6 +263,7 @@ def runner(urls, locations):
              sleep(300)
     [rearchive.rearchive(loc) for loc in locations]
     [repackage.repackage(loc) for loc in locations]
+    print "Total running time: %.02f minutes" % ((time() - starttime) / 60.)
          
 if __name__ == "__main__":
     parser = OptionParser()
